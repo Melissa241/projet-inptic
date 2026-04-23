@@ -1,45 +1,55 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template_string
 from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 app = Flask(__name__)
 
-# --- MÉTRIQUES POUR GRAFANA ---
-# Compteur de requêtes (par méthode et par route)
-REQUESTS = Counter('inptic_requests_total', 'Total des requêtes HTTP', ['method', 'endpoint'])
-# Jauge pour le nombre d'étudiants (idéal pour les graphiques Grafana)
-STUDENTS_COUNT = Gauge('inptic_students_total', 'Nombre total d\'étudiants dans la base')
+# --- MÉTRIQUES ---
+REQUESTS = Counter('inptic_requests_total', 'Total des requêtes', ['method', 'endpoint'])
+STUDENTS_COUNT = Gauge('inptic_students_total', 'Nombre total d\'étudiants')
 
-# Base de données temporaire
 etudiants = [
     {"id": 1, "nom": "Mel Cham", "filiere": "SRI"},
     {"id": 2, "nom": "Alice Doe", "filiere": "ASUR"}
 ]
-
-# Initialisation de la jauge
 STUDENTS_COUNT.set(len(etudiants))
+
+# --- INTERFACE HTML AVEC FORMULAIRE ---
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>INPTIC - Gestion</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f4f7f6; padding: 50px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: inline-block; }
+        input { padding: 10px; margin: 5px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #219150; }
+        .stats { margin-top: 20px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1 style="color: #2c3e50;">🎓 Inscrire un Étudiant</h1>
+        <form action="/etudiants" method="post">
+            <input type="text" name="nom" placeholder="Nom de l'étudiant" required>
+            <input type="text" name="filiere" placeholder="Filière (ex: SRI, ASUR)" required>
+            <br><br>
+            <button type="submit">Enregistrer l'étudiant</button>
+        </form>
+        <div class="stats">
+            <a href="/etudiants">Voir la liste JSON</a> | 
+            <a href="http://192.168.23.129:3000">Voir Grafana</a>
+        </div>
+    </div>
+</body>
+</html>
+"""
 
 @app.route('/')
 def home():
     REQUESTS.labels(method='GET', endpoint='/').inc()
-    # Cette fois, on renvoie une interface visuelle (HTML)
-    return """
-    <html>
-        <head><title>INPTIC - Gestion Étudiants</title></head>
-        <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
-            <h1 style="color: #2c3e50;">🎓 Système de Gestion des Étudiants INPTIC</h1>
-            <p style="font-size: 1.2em;">Statut : <span style="color: green;">En ligne (v1.0)</span></p>
-            <div style="margin: 30px;">
-                <a href="/etudiants" style="padding: 10px 20px; background: #3498db; color: white; text-decoration: none; border-radius: 5px;">Afficher la liste des étudiants</a>
-            </div>
-            <form action="/etudiants" method="post">
-                <button type="submit" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                    ➕ Ajouter un étudiant (Test Graphique)
-                </button>
-            </form>
-            <p style="margin-top: 50px; color: #7f8c8d;">Surveillance active : Prometheus & Grafana</p>
-        </body>
-    </html>
-    """
+    return render_template_string(HTML_TEMPLATE)
 
 @app.route('/etudiants', methods=['GET'])
 def get_etudiants():
@@ -50,18 +60,17 @@ def get_etudiants():
 def add_etudiant():
     REQUESTS.labels(method='POST', endpoint='/etudiants').inc()
 
-    # Simuler l'ajout d'un étudiant pour faire bouger Grafana
-    nouveau_id = len(etudiants) + 1
-    nouvel_etudiant = {"id": nouveau_id, "nom": f"Etudiant_{nouveau_id}", "filiere": "Informatique"}
-    etudiants.append(nouvel_etudiant)
+    # On récupère les données saisies dans le formulaire
+    nom = request.form.get('nom')
+    filiere = request.form.get('filiere')
 
-    # Mise à jour de la jauge
-    STUDENTS_COUNT.set(len(etudiants))
+    if nom and filiere:
+        nouveau_id = len(etudiants) + 1
+        etudiants.append({"id": nouveau_id, "nom": nom, "filiere": filiere})
+        STUDENTS_COUNT.set(len(etudiants))
 
-    # Redirection vers l'accueil après l'ajout
-    return '<html><body><h2>Etudiant ajouté !</h2><a href="/">Retour</a></body></html>'
+    return f'<html><body style="text-align:center;"><h2>L\'étudiant {nom} a été ajouté !</h2><a href="/">Retourner au formulaire</a></body></html>'
 
-# --- ENDPOINT POUR PROMETHEUS ---
 @app.route('/metrics')
 def metrics():
     return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}

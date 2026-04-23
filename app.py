@@ -8,7 +8,7 @@ REQUESTS = Counter('inptic_requests_total', 'Requêtes HTTP', ['method', 'endpoi
 STUDENTS_COUNT = Gauge('inptic_students_total', 'Nombre total d\'étudiants')
 
 etudiants = [
-    {"id": 1, "nom": "Mel Cham", "filiere": "SRI"},
+    {"id": 1, "nom": "Mel Cham", "filiere": "DAR"},
     {"id": 2, "nom": "Alice Doe", "filiere": "ASUR"}
 ]
 STUDENTS_COUNT.set(len(etudiants))

@@ -4,25 +4,42 @@ from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATE
 app = Flask(__name__)
 
 # --- MÉTRIQUES POUR GRAFANA ---
-# 1. Un compteur pour le nombre total de requêtes (ne fait qu'augmenter)
+# Compteur de requêtes (par méthode et par route)
 REQUESTS = Counter('inptic_requests_total', 'Total des requêtes HTTP', ['method', 'endpoint'])
-# 2. Une jauge pour le nombre d'étudiants (peut monter et descendre, parfait pour les graphiques !)
+# Jauge pour le nombre d'étudiants (idéal pour les graphiques Grafana)
 STUDENTS_COUNT = Gauge('inptic_students_total', 'Nombre total d\'étudiants dans la base')
 
-# Base de données temporaire en mémoire
+# Base de données temporaire
 etudiants = [
     {"id": 1, "nom": "Mel Cham", "filiere": "SRI"},
     {"id": 2, "nom": "Alice Doe", "filiere": "ASUR"}
 ]
 
-# On initialise la jauge avec le nombre d'étudiants actuels (2)
+# Initialisation de la jauge
 STUDENTS_COUNT.set(len(etudiants))
 
 @app.route('/')
 def home():
     REQUESTS.labels(method='GET', endpoint='/').inc()
-    # C'est CE texte que tu pourras modifier plus tard pour tester Git/Jenkins
-    return jsonify({"message": "Version 1.0 - API INPTIC en ligne !"})
+    # Cette fois, on renvoie une interface visuelle (HTML)
+    return """
+    <html>
+        <head><title>INPTIC - Gestion Étudiants</title></head>
+        <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+            <h1 style="color: #2c3e50;">🎓 Système de Gestion des Étudiants INPTIC</h1>
+            <p style="font-size: 1.2em;">Statut : <span style="color: green;">En ligne (v1.0)</span></p>
+            <div style="margin: 30px;">
+                <a href="/etudiants" style="padding: 10px 20px; background: #3498db; color: white; text-decoration: none; border-radius: 5px;">Afficher la liste des étudiants</a>
+            </div>
+            <form action="/etudiants" method="post">
+                <button type="submit" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    ➕ Ajouter un étudiant (Test Graphique)
+                </button>
+            </form>
+            <p style="margin-top: 50px; color: #7f8c8d;">Surveillance active : Prometheus & Grafana</p>
+        </body>
+    </html>
+    """
 
 @app.route('/etudiants', methods=['GET'])
 def get_etudiants():
@@ -33,20 +50,21 @@ def get_etudiants():
 def add_etudiant():
     REQUESTS.labels(method='POST', endpoint='/etudiants').inc()
 
-    # On ajoute un faux étudiant juste pour tester la route
-    nouvel_etudiant = {"id": len(etudiants) + 1, "nom": "Nouveau", "filiere": "Dev"}
+    # Simuler l'ajout d'un étudiant pour faire bouger Grafana
+    nouveau_id = len(etudiants) + 1
+    nouvel_etudiant = {"id": nouveau_id, "nom": f"Etudiant_{nouveau_id}", "filiere": "Informatique"}
     etudiants.append(nouvel_etudiant)
 
-    # On met à jour la métrique pour que Grafana réagisse !
+    # Mise à jour de la jauge
     STUDENTS_COUNT.set(len(etudiants))
 
-    return jsonify({"message": "Étudiant ajouté avec succès !", "total": len(etudiants)}), 201
+    # Redirection vers l'accueil après l'ajout
+    return '<html><body><h2>Etudiant ajouté !</h2><a href="/">Retour</a></body></html>'
 
-# --- ENDPOINT OBLIGATOIRE POUR PROMETHEUS ---
+# --- ENDPOINT POUR PROMETHEUS ---
 @app.route('/metrics')
 def metrics():
     return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
 if __name__ == '__main__':
-    # Écoute sur toutes les interfaces pour Docker
     app.run(host='0.0.0.0', port=5000)

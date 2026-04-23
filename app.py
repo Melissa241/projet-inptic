@@ -1,10 +1,10 @@
-from flask import Flask, jsonify, request, render_template_string
+from flask import Flask, jsonify, request, render_template_string, redirect, url_for
 from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 app = Flask(__name__)
 
 # --- MÉTRIQUES ---
-REQUESTS = Counter('inptic_requests_total', 'Total des requêtes', ['method', 'endpoint'])
+REQUESTS = Counter('inptic_requests_total', 'Requêtes HTTP', ['method', 'endpoint'])
 STUDENTS_COUNT = Gauge('inptic_students_total', 'Nombre total d\'étudiants')
 
 etudiants = [
@@ -13,35 +13,80 @@ etudiants = [
 ]
 STUDENTS_COUNT.set(len(etudiants))
 
-# --- INTERFACE HTML AVEC FORMULAIRE ---
+# --- INTERFACE HTML/CSS MYSTIFIANTE ---
+# Utilisation de Google Fonts et de styles néon
 HTML_TEMPLATE = """
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <title>INPTIC - Gestion</title>
+    <meta charset="UTF-8">
+    <title>INPTIC - Matrix Student Management</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f4f7f6; padding: 50px; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: inline-block; }
-        input { padding: 10px; margin: 5px; border: 1px solid #ddd; border-radius: 5px; }
-        button { padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        button:hover { background: #219150; }
-        .stats { margin-top: 20px; color: #7f8c8d; }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400&display=swap');
+        
+        body { 
+            background: #0d0d0d; color: #00ff41; font-family: 'Roboto', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0;
+        }
+        h1 { font-family: 'Orbitron', sans-serif; text-shadow: 0 0 10px #00ff41; margin-top: 30px; }
+        
+        .container { background: #1a1a1a; padding: 25px; border-radius: 15px; border: 1px solid #00ff41; 
+                     box-shadow: 0 0 20px rgba(0, 255, 65, 0.2); width: 80%; max-width: 800px; margin-top: 20px; }
+        
+        input { background: #333; border: 1px solid #00ff41; color: white; padding: 10px; border-radius: 5px; margin: 5px; }
+        button { background: #00ff41; color: black; border: none; padding: 10px 20px; font-weight: bold; 
+                 border-radius: 5px; cursor: pointer; transition: 0.3s; font-family: 'Orbitron', sans-serif; }
+        button:hover { background: #008f11; box-shadow: 0 0 15px #00ff41; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; color: white; }
+        th, td { border-bottom: 1px solid #333; padding: 12px; text-align: left; }
+        th { color: #00ff41; text-transform: uppercase; font-size: 0.8em; }
+        
+        .btn-delete { background: #ff3131; margin-left: 5px; color: white; }
+        .btn-delete:hover { background: #b90000; box-shadow: 0 0 15px #ff3131; }
+        .btn-edit { background: #39ff14; color: black; }
+
+        .stats-link { margin-top: 20px; color: #888; text-decoration: none; font-size: 0.9em; }
+        .stats-link:hover { color: #00ff41; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1 style="color: #2c3e50;">🎓 Inscrire un Étudiant</h1>
+    <h1>INPTIC SYSTEM ACCESS</h1>
+    
+    <div class="container">
+        <h3>INSCRIPTION NOUVEL UNITÉ</h3>
         <form action="/etudiants" method="post">
-            <input type="text" name="nom" placeholder="Nom de l'étudiant" required>
-            <input type="text" name="filiere" placeholder="Filière (ex: SRI, ASUR)" required>
-            <br><br>
-            <button type="submit">Enregistrer l'étudiant</button>
+            <input type="text" name="nom" placeholder="IDENTITÉ" required>
+            <input type="text" name="filiere" placeholder="SECTEUR / FILIÈRE" required>
+            <button type="submit">INJECTER</button>
         </form>
-        <div class="stats">
-            <a href="/etudiants">Voir la liste JSON</a> | 
-            <a href="http://192.168.23.129:3000">Voir Grafana</a>
-        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th><th>NOM</th><th>FILIÈRE</th><th>ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in etudiants %}
+                <tr>
+                    <td>#{{ e.id }}</td>
+                    <td>{{ e.nom }}</td>
+                    <td>{{ e.filiere }}</td>
+                    <td>
+                        <form action="/update/{{ e.id }}" method="post" style="display:inline;">
+                            <input type="text" name="nom" placeholder="Nouveau nom" style="font-size: 0.7em; padding: 5px; width: 80px;">
+                            <button type="submit" class="btn-edit" style="padding: 5px 10px; font-size: 0.6em;">MOD</button>
+                        </form>
+                        <a href="/delete/{{ e.id }}"><button class="btn-delete" style="padding: 5px 10px; font-size: 0.6em;">X</button></a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+
+    <a href="http://192.168.23.129:3000" target="_blank" class="stats-link">CONSULTER LES MÉTRIQUES GRAFANA</a>
 </body>
 </html>
 """
@@ -49,27 +94,35 @@ HTML_TEMPLATE = """
 @app.route('/')
 def home():
     REQUESTS.labels(method='GET', endpoint='/').inc()
-    return render_template_string(HTML_TEMPLATE)
-
-@app.route('/etudiants', methods=['GET'])
-def get_etudiants():
-    REQUESTS.labels(method='GET', endpoint='/etudiants').inc()
-    return jsonify(etudiants)
+    return render_template_string(HTML_TEMPLATE, etudiants=etudiants)
 
 @app.route('/etudiants', methods=['POST'])
 def add_etudiant():
     REQUESTS.labels(method='POST', endpoint='/etudiants').inc()
-
-    # On récupère les données saisies dans le formulaire
     nom = request.form.get('nom')
     filiere = request.form.get('filiere')
-
     if nom and filiere:
-        nouveau_id = len(etudiants) + 1
+        nouveau_id = max([e['id'] for e in etudiants]) + 1 if etudiants else 1
         etudiants.append({"id": nouveau_id, "nom": nom, "filiere": filiere})
         STUDENTS_COUNT.set(len(etudiants))
+    return redirect(url_for('home'))
 
-    return f'<html><body style="text-align:center;"><h2>L\'étudiant {nom} a été ajouté !</h2><a href="/">Retourner au formulaire</a></body></html>'
+@app.route('/delete/<int:id>')
+def delete_etudiant(id):
+    global etudiants
+    REQUESTS.labels(method='GET', endpoint='/delete').inc()
+    etudiants = [e for e in etudiants if e['id'] != id]
+    STUDENTS_COUNT.set(len(etudiants))
+    return redirect(url_for('home'))
+
+@app.route('/update/<int:id>', methods=['POST'])
+def update_etudiant(id):
+    REQUESTS.labels(method='POST', endpoint='/update').inc()
+    nouveau_nom = request.form.get('nom')
+    for e in etudiants:
+        if e['id'] == id and nouveau_nom:
+            e['nom'] = nouveau_nom
+    return redirect(url_for('home'))
 
 @app.route('/metrics')
 def metrics():

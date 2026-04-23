@@ -51,14 +51,14 @@ HTML_TEMPLATE = """
     </style>
 </head>
 <body>
-    <h1>INPTIC SYSTEM ACCESS</h1>
+    <h1>INPTIC GESTION ETUDIANT</h1>
     
     <div class="container">
-        <h3>INSCRIPTION NOUVEL UNITÉ</h3>
+        <h3>INSCRIPTION NOUVEL ETUDIANT</h3>
         <form action="/etudiants" method="post">
             <input type="text" name="nom" placeholder="IDENTITÉ" required>
-            <input type="text" name="filiere" placeholder="SECTEUR / FILIÈRE" required>
-            <button type="submit">INJECTER</button>
+            <input type="text" name="filiere" placeholder=" FILIÈRE" required>
+            <button type="submit">AJOUTER</button>
         </form>
 
         <table>

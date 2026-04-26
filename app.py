@@ -1,71 +1,74 @@
+import smtplib
+from email.mime.text import MIMEText
 from flask import Flask, jsonify, request, render_template_string, redirect, url_for
 from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 app = Flask(__name__)
 
-# --- MÉTRIQUES ---
+# --- CONFIGURATION EMAIL ---
+GMAIL_USER = 'melcham61@gmail.com'  # Remplacer par ton adresse Gmail
+GMAIL_PASSWORD = 'xueg wqbx mvjo txms'  # Remplacer par ton mot de passe d'application
+RECEIVER_EMAIL = 'melcham61@gmail.com' # Où tu recevras les alertes
+
+def send_notification(action, student_name):
+    try:
+        subject = f"🚨 ALERTE SYSTÈME : {action}"
+        body = f"Le système INPTIC détecte une modification :\nAction : {action}\nÉtudiant : {student_name}\nStatut : Opération Réussie."
+        
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = GMAIL_USER
+        msg['To'] = RECEIVER_EMAIL
+
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(GMAIL_USER, GMAIL_PASSWORD)
+            server.sendmail(GMAIL_USER, RECEIVER_EMAIL, msg.as_string())
+        print("Email envoyé avec succès !")
+    except Exception as e:
+        print(f"Erreur lors de l'envoi du mail : {e}")
+
+# --- MÉTRIQUES PROMETHEUS ---
 REQUESTS = Counter('inptic_requests_total', 'Requêtes HTTP', ['method', 'endpoint'])
 STUDENTS_COUNT = Gauge('inptic_students_total', 'Nombre total d\'étudiants')
 
 etudiants = [
-    {"id": 1, "nom": "Mel Cham", "filiere": "DAR"},
+    {"id": 1, "nom": "Mel Cham", "filiere": "SRI"},
     {"id": 2, "nom": "Alice Doe", "filiere": "ASUR"}
 ]
 STUDENTS_COUNT.set(len(etudiants))
 
-# --- INTERFACE HTML/CSS MYSTIFIANTE ---
-# Utilisation de Google Fonts et de styles néon
+# --- INTERFACE MYSTIFIANTE (MATRIX) ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>INPTIC - Matrix Student Management</title>
+    <title>INPTIC - Secure System</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400&display=swap');
-        
-        body { 
-            background: #0d0d0d; color: #00ff41; font-family: 'Roboto', sans-serif; 
-            display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0;
-        }
-        h1 { font-family: 'Orbitron', sans-serif; text-shadow: 0 0 10px #00ff41; margin-top: 30px; }
-        
-        .container { background: #1a1a1a; padding: 25px; border-radius: 15px; border: 1px solid #00ff41; 
-                     box-shadow: 0 0 20px rgba(0, 255, 65, 0.2); width: 80%; max-width: 800px; margin-top: 20px; }
-        
-        input { background: #333; border: 1px solid #00ff41; color: white; padding: 10px; border-radius: 5px; margin: 5px; }
-        button { background: #00ff41; color: black; border: none; padding: 10px 20px; font-weight: bold; 
-                 border-radius: 5px; cursor: pointer; transition: 0.3s; font-family: 'Orbitron', sans-serif; }
-        button:hover { background: #008f11; box-shadow: 0 0 15px #00ff41; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; color: white; }
-        th, td { border-bottom: 1px solid #333; padding: 12px; text-align: left; }
-        th { color: #00ff41; text-transform: uppercase; font-size: 0.8em; }
-        
-        .btn-delete { background: #ff3131; margin-left: 5px; color: white; }
-        .btn-delete:hover { background: #b90000; box-shadow: 0 0 15px #ff3131; }
-        .btn-edit { background: #39ff14; color: black; }
-
-        .stats-link { margin-top: 20px; color: #888; text-decoration: none; font-size: 0.9em; }
-        .stats-link:hover { color: #00ff41; }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        body { background: #000; color: #0f0; font-family: 'Orbitron', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { border: 2px solid #0f0; padding: 30px; box-shadow: 0 0 20px #0f0; border-radius: 10px; width: 80%; max-width: 900px; }
+        input { background: #111; border: 1px solid #0f0; color: #0f0; padding: 10px; margin-bottom: 10px; width: 200px; }
+        button { background: #0f0; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; transition: 0.5s; }
+        button:hover { background: #000; color: #0f0; border: 1px solid #0f0; box-shadow: 0 0 15px #0f0; }
+        table { width: 100%; margin-top: 30px; border-collapse: collapse; }
+        th, td { border: 1px solid #0f0; padding: 10px; text-align: left; }
+        .alert-msg { color: #f00; font-size: 0.8em; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <h1>INPTIC GESTION ETUDIANT</h1>
-    
+    <h1>INPTIC REAL-TIME MONITORING</h1>
     <div class="container">
-        <h3>INSCRIPTION NOUVEL ETUDIANT</h3>
+        <p class="alert-msg">>> SYSTEM NOTIFICATION: EMAILS ACTIVE ON PORT 465</p>
         <form action="/etudiants" method="post">
-            <input type="text" name="nom" placeholder="IDENTITÉ" required>
-            <input type="text" name="filiere" placeholder=" FILIÈRE" required>
-            <button type="submit">AJOUTER</button>
+            <input type="text" name="nom" placeholder="NOM ÉTUDIANT" required>
+            <input type="text" name="filiere" placeholder="FILIÈRE" required>
+            <button type="submit">AJOUTER & NOTIFIER</button>
         </form>
 
         <table>
             <thead>
-                <tr>
-                    <th>ID</th><th>NOM</th><th>FILIÈRE</th><th>ACTIONS</th>
-                </tr>
+                <tr><th>ID</th><th>NOM</th><th>FILIÈRE</th><th>ACTION</th></tr>
             </thead>
             <tbody>
                 {% for e in etudiants %}
@@ -73,20 +76,13 @@ HTML_TEMPLATE = """
                     <td>#{{ e.id }}</td>
                     <td>{{ e.nom }}</td>
                     <td>{{ e.filiere }}</td>
-                    <td>
-                        <form action="/update/{{ e.id }}" method="post" style="display:inline;">
-                            <input type="text" name="nom" placeholder="Nouveau nom" style="font-size: 0.7em; padding: 5px; width: 80px;">
-                            <button type="submit" class="btn-edit" style="padding: 5px 10px; font-size: 0.6em;">MOD</button>
-                        </form>
-                        <a href="/delete/{{ e.id }}"><button class="btn-delete" style="padding: 5px 10px; font-size: 0.6em;">X</button></a>
-                    </td>
+                    <td><a href="/delete/{{ e.id }}"><button style="background:#f00; color:white;">SUPPRIMER</button></a></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-
-    <a href="http://192.168.23.129:3000" target="_blank" class="stats-link">CONSULTER LES MÉTRIQUES GRAFANA</a>
+    <p style="margin-top:20px; font-size:0.7em;">Connected to: Prometheus | Grafana | Gmail SMTP</p>
 </body>
 </html>
 """
@@ -98,30 +94,25 @@ def home():
 
 @app.route('/etudiants', methods=['POST'])
 def add_etudiant():
-    REQUESTS.labels(method='POST', endpoint='/etudiants').inc()
     nom = request.form.get('nom')
     filiere = request.form.get('filiere')
     if nom and filiere:
-        nouveau_id = max([e['id'] for e in etudiants]) + 1 if etudiants else 1
-        etudiants.append({"id": nouveau_id, "nom": nom, "filiere": filiere})
+        new_id = max([e['id'] for e in etudiants]) + 1 if etudiants else 1
+        etudiants.append({"id": new_id, "nom": nom, "filiere": filiere})
         STUDENTS_COUNT.set(len(etudiants))
+        # ENVOI DU MAIL
+        send_notification("AJOUT ÉTUDIANT", f"{nom} ({filiere})")
     return redirect(url_for('home'))
 
 @app.route('/delete/<int:id>')
 def delete_etudiant(id):
     global etudiants
-    REQUESTS.labels(method='GET', endpoint='/delete').inc()
-    etudiants = [e for e in etudiants if e['id'] != id]
-    STUDENTS_COUNT.set(len(etudiants))
-    return redirect(url_for('home'))
-
-@app.route('/update/<int:id>', methods=['POST'])
-def update_etudiant(id):
-    REQUESTS.labels(method='POST', endpoint='/update').inc()
-    nouveau_nom = request.form.get('nom')
-    for e in etudiants:
-        if e['id'] == id and nouveau_nom:
-            e['nom'] = nouveau_nom
+    target = next((e for e in etudiants if e['id'] == id), None)
+    if target:
+        etudiants = [e for e in etudiants if e['id'] != id]
+        STUDENTS_COUNT.set(len(etudiants))
+        # ENVOI DU MAIL
+        send_notification("SUPPRESSION ÉTUDIANT", target['nom'])
     return redirect(url_for('home'))
 
 @app.route('/metrics')
